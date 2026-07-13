@@ -28,6 +28,7 @@ int current_lang = 0;
 
 char key_buffer[BUFFER_SIZE] = {0};
 NOTIFYICONDATA nid;
+BOOL is_replacing = FALSE;
 
 char vault_dir_path[MAX_PATH] = {0};
 char vault_file_path[MAX_PATH] = {0};
@@ -191,24 +192,8 @@ void UrlDecode(char* src, char* dest) {
     *dest = '\0';
 }
 
-void SendBackspace(int count) {
-    INPUT inputs[2];
-    memset(inputs, 0, sizeof(inputs));
-    inputs[0].type = INPUT_KEYBOARD;
-    inputs[0].ki.wVk = VK_BACK;
-    inputs[1].type = INPUT_KEYBOARD;
-    inputs[1].ki.wVk = VK_BACK;
-    inputs[1].ki.dwFlags = KEYEVENTF_KEYUP;
-
-    for (int i = 0; i < count; i++) {
-        SendInput(2, inputs, sizeof(INPUT));
-        Sleep(5);
-    }
-}
-
 void DoReplaceText(int trigger_len, const wchar_t* new_text) {
-    SendBackspace(trigger_len - 1);
-    Sleep(20);
+    is_replacing = TRUE;
 
     if (OpenClipboard(NULL)) {
         EmptyClipboard();
@@ -220,31 +205,58 @@ void DoReplaceText(int trigger_len, const wchar_t* new_text) {
             SetClipboardData(CF_UNICODETEXT, hMem);
         }
         CloseClipboard();
-
-        INPUT inputs[4];
-        memset(inputs, 0, sizeof(inputs));
-
-        inputs[0].type = INPUT_KEYBOARD;
-        inputs[0].ki.wVk = VK_CONTROL;
-
-        inputs[1].type = INPUT_KEYBOARD;
-        inputs[1].ki.wVk = 'V';
-
-        inputs[2].type = INPUT_KEYBOARD;
-        inputs[2].ki.wVk = 'V';
-        inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
-
-        inputs[3].type = INPUT_KEYBOARD;
-        inputs[3].ki.wVk = VK_CONTROL;
-        inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
-
-        SendInput(4, inputs, sizeof(INPUT));
     }
+
+    int total_inputs = (trigger_len - 1) * 2 + 4;
+    INPUT *inputs = (INPUT*)calloc(total_inputs, sizeof(INPUT));
+    int idx = 0;
+
+    for (int i = 0; i < trigger_len - 1; i++) {
+        inputs[idx].type = INPUT_KEYBOARD;
+        inputs[idx].ki.wVk = VK_BACK;
+        idx++;
+        inputs[idx].type = INPUT_KEYBOARD;
+        inputs[idx].ki.wVk = VK_BACK;
+        inputs[idx].ki.dwFlags = KEYEVENTF_KEYUP;
+        idx++;
+    }
+
+    inputs[idx].type = INPUT_KEYBOARD;
+    inputs[idx].ki.wVk = VK_CONTROL;
+    idx++;
+
+    inputs[idx].type = INPUT_KEYBOARD;
+    inputs[idx].ki.wVk = 'V';
+    idx++;
+
+    inputs[idx].type = INPUT_KEYBOARD;
+    inputs[idx].ki.wVk = 'V';
+    inputs[idx].ki.dwFlags = KEYEVENTF_KEYUP;
+    idx++;
+
+    inputs[idx].type = INPUT_KEYBOARD;
+    inputs[idx].ki.wVk = VK_CONTROL;
+    inputs[idx].ki.dwFlags = KEYEVENTF_KEYUP;
+    idx++;
+
+    SendInput(total_inputs, inputs, sizeof(INPUT));
+    free(inputs);
+
+    Sleep(30);
+    is_replacing = FALSE;
 }
 
 LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (is_replacing) {
+        return CallNextHookEx(NULL, nCode, wParam, lParam);
+    }
+
     if (nCode == HC_ACTION && wParam == WM_KEYDOWN) {
         KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT *)lParam;
+
+        if (p->flags & LLKHF_INJECTED) {
+            return CallNextHookEx(NULL, nCode, wParam, lParam);
+        }
 
         BYTE keyboardState[256];
         GetKeyboardState(keyboardState);
