@@ -213,7 +213,7 @@ BOOL SendResponse(SOCKET client, int status, const char *body) {
     int n=snprintf(header,sizeof(header),
         "HTTP/1.1 %d %s\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: %lu\r\n"
         "Connection: close\r\nCache-Control: no-store\r\nPragma: no-cache\r\n"
-        "X-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nReferrer-Policy: no-referrer\r\n"
+        "X-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nReferrer-Policy: same-origin\r\n"
         "Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\n%s\r\n",
         status,reason,(unsigned long)strlen(body),status==303 ? "Location: /\r\n" : "");
     if (n<0 || (size_t)n>=sizeof(header)) return FALSE;

@@ -346,6 +346,8 @@ static void TestServer(void) {
     HANDLE server=CreateThread(NULL,0,HttpServerThread,NULL,0,NULL); CHECK(server!=NULL);
     char *response=Exchange("GET / HTTP/1.1\r\nHost: " LOCAL_HOST "\r\n\r\n",TRUE);
     CHECK(strstr(response,"HTTP/1.1 200 ") && strstr(response,"Cache-Control: no-store") && strstr(response,"frame-ancestors 'none'"));
+    /* Native form navigation needs its same-origin Origin on POST /add. */
+    CHECK(strstr(response,"\r\nReferrer-Policy: same-origin\r\n")!=NULL);
     char secret[PASSWORD_CAP*4u];
     CHECK(WideCharToMultiByte(CP_UTF8,0,in.items[0].password,-1,secret,sizeof(secret),NULL,NULL)>0);
     CHECK(!strstr(response,secret)); free(response); SecureZeroMemory(secret,sizeof(secret));
@@ -353,6 +355,7 @@ static void TestServer(void) {
     ExpectRequest("GET / HTTP/1.1\r\nHost: attacker.example\r\n\r\n",400,FALSE);
     ExpectRequest("POST /add HTTP/1.1\r\nHost: " LOCAL_HOST "\r\nOrigin: https://attacker.example\r\nContent-Length: 0\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\n",400,FALSE);
     ExpectRequest("POST /add HTTP/1.1\r\nHost: " LOCAL_HOST "\r\nOrigin: " LOCAL_ORIGIN "\r\nContent-Length: 10\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nx=1",400,FALSE);
+    ExpectRequest("POST /add HTTP/1.1\r\nHost: " LOCAL_HOST "\r\nOrigin: null\r\nContent-Length: 0\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\n",400,FALSE);
     Post("/add","tag=x&pass=x",403,FALSE);
     char body[HTTP_BODY_MAX+1u];
     CHECK(snprintf(body,sizeof(body),"csrf=%s&tag=%%3Cfixture%%3E&pass=%%41%%42%%43",csrf)>0);
