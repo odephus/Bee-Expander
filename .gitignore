@@ -2,3 +2,10 @@
 *.dat
 *.o
 *.obj
+/build/
+*.tmp
+*.bak
+*.pdb
+*.ilk
+*.lib
+*.exp
